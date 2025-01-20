@@ -351,6 +351,45 @@ export function Create() {
     generateRandomThemes();
   }, []);
 
+  // 添加测试函数
+  const testRecraftAPI = async () => {
+    try {
+      const response = await axios.post(
+        'https://external.api.recraft.ai/v1/images/generations',
+        {
+          prompt: '一只可爱的卡通小猫',
+          style: 'digital_illustration',
+          n: 1,
+          response_format: 'url'
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_RECRAFT_API_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      console.log('Recraft API Response:', response.data);
+      if (response.data.data?.[0]?.url) {
+        // 显示生成的图片
+        const testImage = document.createElement('img');
+        testImage.src = response.data.data[0].url;
+        testImage.style.maxWidth = '300px';
+        testImage.style.border = '2px solid #ccc';
+        
+        const container = document.getElementById('test-image-container');
+        if (container) {
+          container.innerHTML = '';
+          container.appendChild(testImage);
+        }
+      }
+    } catch (error) {
+      console.error('Recraft API Error:', error);
+      alert('API调用失败，请检查控制台获取详细信息');
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       {/* Progress Steps */}
@@ -621,6 +660,22 @@ export function Create() {
       ) : (
         /* Storybook Preview Section */
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg">
+          {/* 添加测试按钮和显示区域 */}
+          <div className="mb-8">
+            <button
+              onClick={testRecraftAPI}
+              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+            >
+              测试Recraft API
+            </button>
+            <div 
+              id="test-image-container" 
+              className="mt-4 min-h-[200px] border-2 border-dashed border-gray-200 rounded-lg p-4 flex items-center justify-center"
+            >
+              <p className="text-gray-500">生成的图片将显示在这里</p>
+            </div>
+          </div>
+          
           {isGeneratingImages ? (
             <div className="flex flex-col items-center justify-center min-h-[600px] space-y-4">
               <Loader2 className="w-12 h-12 animate-spin text-indigo-600" />
