@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Sparkles, Palette, ArrowRight, Loader2, ChevronLeft, ChevronRight, Pencil, BookOpen, Download, Share2, Send, Save } from 'lucide-react';
 import { storyService } from '../services/storyService';
+import { authService } from '../services/authService'; 
 
 interface StoryPage {
   title?: string;
@@ -24,6 +25,8 @@ interface ThemeWithType {
 }
 
 export function Create() {
+  const navigate = useNavigate(); // 确保在顶部初始化
+
   const [theme, setTheme] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [step, setStep] = useState<'theme' | 'story' | 'illustration-settings' | 'illustration'>('theme');
@@ -39,6 +42,90 @@ export function Create() {
     model: 'hand_drawn',
     aspectRatio: '16:9',  // 固定为16:9
   });
+
+  // 使用 useCallback 确保 handleSaveStory 正确绑定
+  const handleSaveStory = useCallback(async () => {
+    // 首先检查是否登录
+    if (!authService.isAuthenticated()) {
+      // 如果未登录，弹出提示并跳转到登录页面
+      const confirmLogin = window.confirm('您尚未登录，是否前往登录页面？');
+      if (confirmLogin) {
+        navigate('/login');
+      }
+      return;
+    }
+
+    try {
+      // 确保至少有一页故事
+      if (generatedStory.length === 0) {
+        alert('请先生成故事');
+        return;
+      }
+
+      // 调试：打印当前登录用户信息
+      const userInfo = authService.getUserInfo();
+      console.log('当前登录用户:', userInfo);
+
+      // 检查 localStorage 中的用户信息
+      const storedUserPhone = localStorage.getItem('userPhone');
+      const storedToken = localStorage.getItem('token');
+      console.log('存储的用户信息:', { 
+        userPhone: storedUserPhone, 
+        tokenExists: !!storedToken 
+      });
+
+      // 使用当前页面或第一页的数据
+      const currentStoryPage = currentPage !== null ? generatedStory[currentPage] : generatedStory[0];
+
+      // 从随机主题中获取主题，如果没有则使用默认值
+      const themeFromRandomThemes = randomThemes.length > 0 
+        ? randomThemes[currentThemeIndex]?.theme 
+        : '未知主题';
+
+      const storyData = {
+        title: currentStoryPage.title || generatedStory[0].title || '未命名绘本',
+        theme: themeFromRandomThemes,
+        content: currentStoryPage.content,
+        imagePrompt: currentStoryPage.imagePrompt,
+        imageUrl: currentStoryPage.imageUrl || '',
+        titleEn: currentStoryPage.titleEn,
+        contentEn: currentStoryPage.contentEn,
+        imagePromptEn: currentStoryPage.imagePromptEn
+      };
+
+      // 调试：打印将要保存的故事数据
+      console.log('准备保存的故事数据:', storyData);
+
+      const savedStory = await storyService.saveStory(storyData);
+      
+      // 调试：打印保存成功的故事
+      console.log('故事保存成功:', savedStory);
+
+      alert('绘本保存成功！');
+      navigate('/'); // 保存成功后跳转到首页
+    } catch (error) {
+      // 详细的错误日志
+      console.error('保存故事时出错:', error);
+      
+      // 更具体的错误处理
+      if (error instanceof Error) {
+        if (error.message.includes('未登录')) {
+          alert('登录状态已过期，请重新登录');
+          navigate('/login');
+        } else {
+          alert(`保存失败：${error.message}`);
+        }
+      } else {
+        alert('保存失败，请重试');
+      }
+    }
+  }, [
+    navigate, 
+    generatedStory, 
+    currentPage, 
+    randomThemes, 
+    currentThemeIndex
+  ]);
 
   // 简化插画模式定义
   const illustrationModels = [
@@ -459,28 +546,6 @@ export function Create() {
 
     // 不需要cleanup函数，因为我们使用ref来控制
   }, []); // 依赖项为空数组
-
-// 在现有的 Create.tsx 中添加保存功能
-const handleSaveStory = async () => {
-  try {
-    const storyData = {
-      title: currentPage.title || '',
-      theme: selectedTheme?.theme || '',
-      content: currentPage.content,
-      imagePrompt: currentPage.imagePrompt,
-      imageUrl: currentPage.imageUrl || '',
-      titleEn: currentPage.titleEn,
-      contentEn: currentPage.contentEn,
-      imagePromptEn: currentPage.imagePromptEn
-    };
-
-    await storyService.saveStory(storyData);
-    alert('绘本保存成功！');
-    navigate('/'); // 保存成功后跳转到首页
-  } catch (error) {
-    alert('保存失败，请确保已登录并重试');
-  }
-};
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

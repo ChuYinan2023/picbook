@@ -31,9 +31,12 @@ export const authService = {
       }
     };
 
-    // 保存用户信息
+    // 保存用户信息 - 确保同时设置 token 和 userPhone
     localStorage.setItem('token', response.token);
     localStorage.setItem('userPhone', phone);
+
+    // 打印日志以便调试
+    console.log('登录成功，token已保存:', response.token);
 
     return response;
   },
@@ -44,7 +47,18 @@ export const authService = {
   },
 
   isAuthenticated: (): boolean => {
-    return !!localStorage.getItem('token');
+    const token = localStorage.getItem('token');
+    const userPhone = localStorage.getItem('userPhone');
+    
+    // 同时检查 token 和 userPhone
+    const isValid = !!token && !!userPhone;
+    
+    // 调试日志
+    if (!isValid) {
+      console.warn('未检测到有效的登录状态');
+    }
+    
+    return isValid;
   },
 
   getUserInfo: () => {
