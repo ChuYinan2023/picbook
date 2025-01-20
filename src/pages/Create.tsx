@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Sparkles, Palette, ArrowRight, Loader2, ChevronLeft, ChevronRight, Pencil, BookOpen, Download, Share2, Send } from 'lucide-react';
 
@@ -32,76 +32,90 @@ export function Create() {
   const [randomThemes, setRandomThemes] = useState<ThemeWithType[]>([]);
   const [isLoadingThemes, setIsLoadingThemes] = useState(false);
 
-  // Illustration settings state
+  // 插画设定状态
   const [illustrationSettings, setIllustrationSettings] = useState({
-    model: 'model1',
-    aspectRatio: '16:9',
+    model: 'hand_drawn',
+    aspectRatio: '16:9',  // 固定为16:9
   });
 
-  // Simplified illustration models with small square thumbnails
+  // 简化插画模式定义
   const illustrationModels = [
     {
-      id: 'model1',
-      name: '童话风',
-      thumbnail: '/mod/3.png'
+      id: 'hand_drawn',
+      name: '手绘',
+      thumbnail: '/mod/hand_drawn.png'
     },
     {
-      id: 'model2',
-      name: '写实风',
-      thumbnail: '/mod/4.png'
+      id: 'grain',
+      name: '颗粒',
+      thumbnail: '/mod/grain.png'
     },
     {
-      id: 'model3',
-      name: '水彩风',
-      thumbnail: '/mod/5.png'
-    },
-    {
-      id: 'model4',
-      name: '卡通风',
-      thumbnail: '/mod/3.png'
-    },
-    {
-      id: 'model5',
-      name: '素描风',
-      thumbnail: '/mod/4.png'
-    },
-    {
-      id: 'model6',
-      name: '像素风',
-      thumbnail: '/mod/5.png'
-    },
-    {
-      id: 'model7',
-      name: '油画风',
-      thumbnail: '/mod/3.png'
-    },
-    {
-      id: 'model8',
-      name: '漫画风',
-      thumbnail: '/mod/4.png'
-    },
-    {
-      id: 'model9',
-      name: '剪纸风',
-      thumbnail: '/mod/5.png'
-    },
-    {
-      id: 'model10',
-      name: '国画风',
-      thumbnail: '/mod/3.png'
+      id: 'clay',
+      name: '陶土',
+      thumbnail: '/mod/clay.png'
     }
   ];
 
-  // Simplified aspect ratio options
+  // 固定画面比例选项
   const aspectRatios = [
-    { value: '16:9', label: '16:9' },
-    { value: '4:3', label: '4:3' },
-    { value: '1:1', label: '1:1' }
+    { value: '16:9', label: '16:9 (1707x1024)', disabled: false }
   ];
 
+  // 添加生成插画的函数
+  const generateIllustrations = async (storyPages: StoryPage[]) => {
+    setIsGeneratingImages(true);
+    try {
+      const updatedPages = await Promise.all(
+        storyPages.map(async (page) => {
+          try {
+            const response = await axios.post(
+              'https://external.api.recraft.ai/v1/images/generations',
+              {
+                prompt: page.imagePrompt,
+                style: 'digital_illustration',
+                substyle: illustrationSettings.model, // 使用选择的风格
+                n: 1,
+                size: '1707x1024',
+                response_format: 'url'
+              },
+              {
+                headers: {
+                  'Authorization': `Bearer ${import.meta.env.VITE_RECRAFT_API_KEY}`,
+                  'Content-Type': 'application/json'
+                }
+              }
+            );
+
+            if (response.data.data?.[0]?.url) {
+              return {
+                ...page,
+                imageUrl: response.data.data[0].url
+              };
+            }
+            return page;
+          } catch (error) {
+            console.error(`Error generating illustration for page ${page.pageNumber}:`, error);
+            return page;
+          }
+        })
+      );
+
+      return updatedPages;
+    } catch (error) {
+      console.error('Error generating illustrations:', error);
+      throw error;
+    } finally {
+      setIsGeneratingImages(false);
+    }
+  };
+
+  // 修改handleGenerate函数
   const handleGenerate = async () => {
+    if (isGenerating) return;
+
     setIsGenerating(true);
-    setGeneratedStory([]);
+    setGeneratedStory([]); // 清空现有故事
     
     try {
       const apiKey = import.meta.env.VITE_DEEPSEEK_API_KEY;
@@ -151,7 +165,7 @@ export function Create() {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json'
         },
-        timeout: 30000
+        timeout: 60000 // 增加到60秒
       });
 
       console.log('Story Generation Response:', response.data);
@@ -175,26 +189,42 @@ export function Create() {
         imagePromptEn: scene.imagePromptEN
       }));
 
+      // 先设置故事并跳转到故事预览页
       setGeneratedStory(storyPages);
       setCurrentPage(0);
       setStep('story');
+
     } catch (error) {
       console.error('Story Generation Error:', error);
-      
-      // 如果API调用失败，提供一个默认的示例场景
-      const defaultScenes: StoryPage[] = [{
-        pageNumber: 1,
-        title: "The Lonely Prince's Planet",
-        content: "In the vast, silent universe, there was a tiny planet no larger than a house. On this miniature world lived a very special little prince, who took care of his beloved rose and three tiny volcanoes with utmost dedication.\n\nEvery morning, he would wake up, sweep the volcanoes, and tend to his rose. Despite having everything he needed, a deep sense of loneliness often crept into his heart, making him gaze wistfully at the distant stars.",
-        imagePrompt: "A small, round planet floating in a starry background. A delicate rose grows in the center, with three tiny volcanoes nearby. A small, melancholic prince sits at the edge, looking into the vast universe, wearing a light blue coat and golden scarf."
-      }];
-
-      setGeneratedStory(defaultScenes);
-      setCurrentPage(0);
-      setStep('story');
+      alert('生成故事时出现错误，请重试');
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  // 添加处理插画生成的函数
+  const handleIllustrationGeneration = async () => {
+    if (isGeneratingImages || generatedStory.length === 0) return;
+
+    try {
+      // 生成插画
+      const pagesWithIllustrations = await generateIllustrations(generatedStory);
+      setGeneratedStory(pagesWithIllustrations);
+      setStep('illustration');
+    } catch (error) {
+      console.error('Error generating illustrations:', error);
+      alert('生成插画时出现错误，请重试');
+    }
+  };
+
+  // 在故事预览页的"下一步"按钮点击处理函数
+  const handleStoryPreviewNext = () => {
+    setStep('illustration-settings');
+  };
+
+  // 在插画设定页的"开始生成"按钮点击处理函数
+  const handleIllustrationSettingsNext = async () => {
+    await handleIllustrationGeneration();
   };
 
   const handleUpdateIllustrationSettings = (key: string, value: string) => {
@@ -202,28 +232,6 @@ export function Create() {
       ...prev,
       [key]: value
     }));
-  };
-
-  const handleGenerateIllustrations = () => {
-    setIsGeneratingImages(true);
-    setCurrentPage(0); // 重置到第一页
-
-    // Use the correct path for picbook images with settings
-    const illustrationUrls = generatedStory.map((_, index) => {
-      // Default to existing image path if no specific style/ratio is available
-      return `/picbook/scene_${index + 1}.png`;
-    });
-    
-    const storyWithImages = generatedStory.map((page, index) => ({
-      ...page,
-      imageUrl: illustrationUrls[index],
-      // Store illustration settings with the story for potential future use
-      illustrationSettings: illustrationSettings
-    }));
-    
-    setGeneratedStory(storyWithImages);
-    setIsGeneratingImages(false);
-    setStep('illustration');
   };
 
   const handlePrevPage = () => {
@@ -234,7 +242,10 @@ export function Create() {
     setCurrentPage(prev => Math.min(generatedStory.length - 1, prev + 1));
   };
 
+  // 修改generateRandomThemes函数，避免重复调用
   const generateRandomThemes = async () => {
+    if (isLoadingThemes) return; // 防止重复调用
+    
     setIsLoadingThemes(true);
     try {
       const apiKey = import.meta.env.VITE_DEEPSEEK_API_KEY;
@@ -262,11 +273,11 @@ export function Create() {
         messages: [
           {
             role: "system", 
-            content: "你是一个儿童绘本主题生成专家。你需要生成独特、富有创意的故事主题，每个主题都应该属于不同的类型（如奇幻、科幻、生活、自然、冒险等）。确保主题之间有足够的差异性，避免重复的元素和相似的场景。"
+            content: "你是一个儿童绘本主题生成专家。你需要生成独特、富有创意的故事主题，每个主题都应该属于不同的类型（如奇幻、科幻、生活、自然、冒险等）。确保主题之间有足够的差异性，避免重复的元素和相似的场景。每个主题必须包含类型标注，格式为：主题（类型）"
           },
           {
             role: "user", 
-            content: "请生成6个独特的儿童故事主题，要求：\n1. 每个主题不超过6个字\n2. 每个主题要属于不同的类型\n3. 避免使用相似的元素（如不要多个主题都用'会说话的'开头）\n4. 主题要具有想象力和教育意义\n请用换行分隔每个主题。"
+            content: "请生成6个独特的儿童故事主题，要求：\n1. 每个主题不超过6个字\n2. 每个主题要属于不同的类型，并在括号中标注类型\n3. 避免使用相似的元素\n4. 主题要具有想象力和教育意义\n5. 格式要求：主题（类型），如"云朵裁缝店（奇幻）"\n请用换行分隔每个主题，并确保每个主题都带有类型标注。"
           }
         ],
         max_tokens: 200,
@@ -286,21 +297,20 @@ export function Create() {
 
       const themes = response.data.choices[0].message.content
         .split('\n')
+        .filter(line => line.trim())
         .map(theme => {
           const themeText = theme.replace(/^\d+\.?\s*/, '').trim();
-          // 提取主题和类型
-          const match = themeText.match(/^(.+?)(?:\s*[（(](.+?)[)）])?$/);
+          // 提取主题和类型，使用中文括号或英文括号
+          const match = themeText.match(/^(.+?)(?:[（(]([^）)]+)[）)])/);
           if (match) {
             return {
               theme: match[1].trim(),
-              type: match[2]?.trim()
+              type: match[2].trim()
             };
           }
-          return { theme: themeText };
+          return null;
         })
-        .filter(({ theme }) => {
-          return theme.length > 0;  // 只过滤掉空主题，不再限制长度
-        });
+        .filter(theme => theme !== null);
 
       console.log('Generated Themes:', themes);
       setRandomThemes(themes.length > 0 ? themes : [
@@ -347,9 +357,26 @@ export function Create() {
     );
   };
 
+  // 添加初始化标志
+  const isInitialized = useRef(false);
+
   useEffect(() => {
-    generateRandomThemes();
-  }, []);
+    // 如果已经初始化过，直接返回
+    if (isInitialized.current) {
+      return;
+    }
+
+    const initThemes = async () => {
+      if (randomThemes.length === 0) {
+        await generateRandomThemes();
+      }
+    };
+
+    initThemes();
+    isInitialized.current = true;
+
+    // 不需要cleanup函数，因为我们使用ref来控制
+  }, []); // 依赖项为空数组
 
   // 添加测试函数
   const testRecraftAPI = async () => {
@@ -357,9 +384,11 @@ export function Create() {
       const response = await axios.post(
         'https://external.api.recraft.ai/v1/images/generations',
         {
-          prompt: '一只可爱的卡通小猫',
+          prompt: '一个疯狂的场景，钟表疯狂地滴答作响，指针失控地旋转。一个小女孩和一位老人一起工作，使用工具和智慧来安抚钟表，象征着忙碌生活的减速。',
           style: 'digital_illustration',
+          substyle: 'child_book',
           n: 1,
+          size: '1707x1024',
           response_format: 'url'
         },
         {
@@ -533,13 +562,14 @@ export function Create() {
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-2xl font-bold text-indigo-900">故事预览</h2>
-            <button
-              onClick={() => setStep('illustration-settings')}
-              className="flex items-center px-6 py-3 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-colors"
-            >
-              <Palette className="mr-2 h-5 w-5" />
-              插画设定
-            </button>
+            <div className="text-center mt-8">
+              <button
+                onClick={handleStoryPreviewNext}
+                className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                下一步
+              </button>
+            </div>
           </div>
 
           {/* All Story Pages in Single View */}
@@ -583,42 +613,49 @@ export function Create() {
               <Palette className="h-6 w-6 text-indigo-600" />
               <h2 className="text-2xl font-bold text-indigo-900">插画设定</h2>
             </div>
-            <button 
-              onClick={handleGenerateIllustrations}
-              className="flex items-center px-6 py-3 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-colors"
-            >
-              <Sparkles className="mr-2 h-5 w-5" />
-              生成绘本
-            </button>
+            <div className="text-center mt-8">
+              <button
+                onClick={handleIllustrationSettingsNext}
+                disabled={isGeneratingImages}
+                className={`px-6 py-2 rounded-lg transition-colors ${
+                  isGeneratingImages
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                }`}
+              >
+                {isGeneratingImages ? '生成中...' : '开始生成'}
+              </button>
+            </div>
           </div>
 
           {/* Illustration Model Selection */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-3">选择模型</h3>
-            <div className="grid grid-cols-5 gap-1">
+            <div className="grid grid-cols-3 gap-8 max-w-3xl mx-auto">
               {illustrationModels.map((model) => (
                 <button
                   key={model.id}
                   onClick={() => handleUpdateIllustrationSettings('model', model.id)}
                   className={`
-                    relative w-full aspect-square rounded-lg overflow-hidden
+                    relative p-4 rounded-xl overflow-hidden
                     border-2 transition-all duration-300
                     ${illustrationSettings.model === model.id 
                       ? 'border-indigo-600 shadow-lg' 
                       : 'border-gray-200 hover:border-indigo-300'}
                   `}
                 >
-                  <img 
-                    src={model.thumbnail} 
-                    alt={model.name} 
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-center text-[10px] py-0.5">
-                    {model.name}
+                  <div className="aspect-square mb-3">
+                    <img 
+                      src={model.thumbnail} 
+                      alt={model.name} 
+                      className="w-full h-full object-contain rounded-lg"
+                    />
+                  </div>
+                  <div className="text-center">
+                    <h4 className="font-medium text-gray-900">{model.name}</h4>
                   </div>
                   {illustrationSettings.model === model.id && (
-                    <div className="absolute top-0.5 right-0.5 bg-indigo-600 text-white rounded-full w-3 h-3 flex items-center justify-center text-[8px]">
-                      ✓
+                    <div className="absolute top-2 right-2 bg-indigo-600 text-white rounded-full p-1">
+                      <Sparkles className="w-4 h-4" />
                     </div>
                   )}
                 </button>
@@ -626,20 +663,22 @@ export function Create() {
             </div>
           </div>
 
-          {/* Aspect Ratio */}
-          <div className="mb-6">
+          {/* Aspect Ratio Selection - 暂时隐藏或禁用其他选项 */}
+          <div className="mb-6" style={{ display: 'none' }}>
             <h3 className="text-lg font-semibold mb-3">画面比例</h3>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-4">
               {aspectRatios.map((ratio) => (
                 <button
                   key={ratio.value}
                   onClick={() => handleUpdateIllustrationSettings('aspectRatio', ratio.value)}
+                  disabled={ratio.disabled}
                   className={`
-                    px-4 py-2 rounded-lg 
-                    border-2 transition-all duration-300
-                    ${illustrationSettings.aspectRatio === ratio.value 
-                      ? 'border-indigo-600 bg-indigo-50 text-indigo-700' 
-                      : 'border-gray-200 hover:border-indigo-300'}
+                    px-4 py-2 rounded-lg
+                    ${illustrationSettings.aspectRatio === ratio.value
+                      ? 'bg-indigo-600 text-white'
+                      : ratio.disabled
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-white text-gray-700 hover:bg-indigo-50'}
                   `}
                 >
                   {ratio.label}
