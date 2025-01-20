@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Sparkles, Palette, ArrowRight, Loader2, ChevronLeft, ChevronRight, Pencil, BookOpen, Download, Share2, Send } from 'lucide-react';
 
 interface StoryPage {
@@ -22,6 +23,8 @@ export function Create() {
   const [generatedStory, setGeneratedStory] = useState<StoryPage[]>([]);
   const [isGeneratingImages, setIsGeneratingImages] = useState(false);
   const [currentThemeIndex, setCurrentThemeIndex] = useState(0);
+  const [randomThemes, setRandomThemes] = useState<string[]>([]);
+  const [isLoadingThemes, setIsLoadingThemes] = useState(false);
 
   // Illustration settings state
   const [illustrationSettings, setIllustrationSettings] = useState({
@@ -183,43 +186,107 @@ export function Create() {
     setCurrentPage(prev => Math.min(generatedStory.length - 1, prev + 1));
   };
 
-  const recommendedThemes = [
-    {
-      title: '火烈鸟和狐狸的友谊',
-      description: '一个关于不同动物之间意想不到友谊的温暖故事',
-      icon: '🦩🦊'
-    },
-    {
-      title: '农夫与蛇的智慧较量',
-      description: '探讨善意、智慧和原谅的寓言故事',
-      icon: '👨‍🌾🐍'
-    },
-    {
-      title: '小马过河的勇气',
-      description: '关于克服恐惧、勇敢面对挑战的励志故事',
-      icon: '🐎🌊'
-    },
-    {
-      title: '国王和农夫的交易',
-      description: '揭示生活智慧和人性本善的有趣故事',
-      icon: '👑👨‍🌾'
-    },
-    {
-      title: '聪明的狐狸和笨鸟',
-      description: '展现智慧与愚笨对比的有趣寓言',
-      icon: '🦊🐦'
+  const generateRandomThemes = async () => {
+    setIsLoadingThemes(true);
+    try {
+      const apiKey = import.meta.env.VITE_DEEPSEEK_API_KEY;
+      
+      // 开发环境详细日志
+      console.log('Complete Environment:', import.meta.env);
+      console.log('API Key Full Value:', apiKey);
+
+      console.log('API Key (first 5 chars):', apiKey?.substring(0, 5) || 'N/A');
+      console.log('API Key Length:', apiKey?.length || 0);
+      console.log('Attempting to generate themes...');
+
+      if (!apiKey) {
+        throw new Error(`
+          API Key is missing. 
+          Please check your .env file and ensure:
+          1. The file is named exactly '.env'
+          2. Contains VITE_DEEPSEEK_API_KEY=your_api_key
+          3. Restart the development server
+        `);
+      }
+
+      const response = await axios.post('https://api.deepseek.com/chat/completions', {
+        model: "deepseek-chat",
+        messages: [
+          {
+            role: "system", 
+            content: "你是一个儿童绘本主题生成专家。请生成6个适合儿童的、富有想象力的故事主题。主题应该简洁、有趣、能激发孩子的好奇心。"
+          },
+          {
+            role: "user", 
+            content: "请给我6个独特的儿童故事主题，每个主题不超过6个字。用换行分隔每个主题。"
+          }
+        ],
+        max_tokens: 200,
+        temperature: 0.7,
+        stream: false
+      }, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      });
+
+      console.log('Full API Response:', JSON.stringify(response.data, null, 2));
+
+      const themes = response.data.choices[0].message.content
+        .split('\n')
+        .map(theme => theme.replace(/^\d+\.?\s*/, '').trim())
+        .filter(theme => theme.length > 0 && theme.length <= 6);
+
+      console.log('Generated Themes:', themes);
+      setRandomThemes(themes.length > 0 ? themes : [
+        "勇敢的小兔子",
+        "神秘的森林",
+        "海底冒险",
+        "太空旅行",
+        "友谊的魔法",
+        "梦想花园"
+      ]);
+    } catch (error) {
+      console.error('Complete Error Object:', error);
+      
+      if (axios.isAxiosError(error)) {
+        console.error('Axios Error Details:', {
+          message: error.message,
+          status: error.response?.status,
+          data: JSON.stringify(error.response?.data, null, 2),
+          headers: error.response?.headers
+        });
+      }
+
+      // 如果API调用失败，提供默认主题
+      setRandomThemes([
+        "勇敢的小兔子",
+        "神秘的森林",
+        "海底冒险",
+        "太空旅行",
+        "友谊的魔法",
+        "梦想花园"
+      ]);
+    } finally {
+      setIsLoadingThemes(false);
     }
-  ];
+  };
 
   const handleNextTheme = () => {
-    setCurrentThemeIndex((prev) => (prev + 1) % recommendedThemes.length);
+    setCurrentThemeIndex((prev) => (prev + 1) % randomThemes.length);
   };
 
   const handlePrevTheme = () => {
     setCurrentThemeIndex((prev) => 
-      prev === 0 ? recommendedThemes.length - 1 : prev - 1
+      prev === 0 ? randomThemes.length - 1 : prev - 1
     );
   };
+
+  useEffect(() => {
+    generateRandomThemes();
+  }, []);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -284,62 +351,33 @@ export function Create() {
               </div>
               
               <div className="relative w-full">
-                <div className="flex items-center justify-center space-x-4">
-                  <button 
-                    onClick={handlePrevTheme}
-                    className="text-gray-500 hover:text-indigo-600 transition-colors"
-                  >
-                    <ChevronLeft className="h-6 w-6" />
-                  </button>
-                  
-                  <div 
-                    className="
-                      w-full max-w-md 
-                      bg-white 
-                      rounded-xl 
-                      shadow-lg 
-                      p-6 
-                      text-center 
-                      transition-all 
-                      duration-500 
-                      transform 
-                      hover:scale-105
-                      cursor-pointer
-                    "
-                    onClick={() => setTheme(recommendedThemes[currentThemeIndex].title)}
-                  >
-                    <div className="text-4xl mb-4">{recommendedThemes[currentThemeIndex].icon}</div>
-                    <h4 className="text-xl font-bold text-indigo-900 mb-2">
-                      {recommendedThemes[currentThemeIndex].title}
-                    </h4>
-                    <p className="text-gray-600 text-sm">
-                      {recommendedThemes[currentThemeIndex].description}
-                    </p>
-                  </div>
-                  
-                  <button 
-                    onClick={handleNextTheme}
-                    className="text-gray-500 hover:text-indigo-600 transition-colors"
-                  >
-                    <ChevronRight className="h-6 w-6" />
-                  </button>
-                </div>
-                
-                {/* Theme Navigation Dots */}
-                <div className="flex justify-center mt-4 space-x-2">
-                  {recommendedThemes.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentThemeIndex(index)}
-                      className={`
-                        h-2 w-2 rounded-full 
-                        transition-all duration-300
-                        ${currentThemeIndex === index 
-                          ? 'bg-indigo-600 w-6' 
-                          : 'bg-gray-300 hover:bg-gray-400'}
-                      `}
-                    />
-                  ))}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {isLoadingThemes ? (
+                    Array(6).fill(0).map((_, index) => (
+                      <div 
+                        key={index} 
+                        className="p-4 bg-gray-100 rounded-lg animate-pulse"
+                      >
+                        <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                      </div>
+                    ))
+                  ) : (
+                    randomThemes.length > 0 ? (
+                      randomThemes.map((suggestedTheme, index) => (
+                        <button
+                          key={index}
+                          onClick={() => setTheme(suggestedTheme)}
+                          className="p-4 bg-white rounded-lg shadow-sm border border-gray-100 hover:border-indigo-300 hover:shadow-md transition-all text-left"
+                        >
+                          <h3 className="font-medium text-gray-900">{suggestedTheme}</h3>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="col-span-full text-center text-gray-500">
+                        暂无主题，点击刷新按钮重新生成
+                      </div>
+                    )
+                  )}
                 </div>
               </div>
             </div>
