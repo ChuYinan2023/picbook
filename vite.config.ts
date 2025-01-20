@@ -10,7 +10,8 @@ export default defineConfig(({ mode }) => {
     define: {
       // 确保环境变量被正确定义
       '__DEV__': mode === 'development',
-      'import.meta.env.VITE_DEEPSEEK_API_KEY': JSON.stringify(env.VITE_DEEPSEEK_API_KEY || '')
+      'import.meta.env.VITE_DEEPSEEK_API_KEY': JSON.stringify(env.VITE_DEEPSEEK_API_KEY || ''),
+      'import.meta.env.VITE_MOCK_RECRAFT_API': JSON.stringify(env.VITE_MOCK_RECRAFT_API || 'false')
     },
     // 确保客户端可以访问环境变量
     envPrefix: ['VITE_']

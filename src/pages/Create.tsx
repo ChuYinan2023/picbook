@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Sparkles, Palette, ArrowRight, Loader2, ChevronLeft, ChevronRight, Pencil, BookOpen, Download, Share2, Send } from 'lucide-react';
+import { Sparkles, Palette, ArrowRight, Loader2, ChevronLeft, ChevronRight, Pencil, BookOpen, Download, Share2, Send, Save } from 'lucide-react';
+import { storyService } from '../services/storyService';
 
 interface StoryPage {
   title?: string;
@@ -110,12 +112,40 @@ export function Create() {
     }
   };
 
+  // 添加故事生成的加载状态
+  const [generationStatus, setGenerationStatus] = useState<{
+    stage: 'preparing' | 'generating_story' | 'parsing' | 'completed' | 'error';
+    message: string;
+    progress: number;
+  }>({
+    stage: 'preparing',
+    message: '准备生成故事...',
+    progress: 0
+  });
+
+  // 进度条组件
+  const ProgressBar = ({ progress }: { progress: number }) => {
+    return (
+      <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mb-4">
+        <div 
+          className="bg-blue-600 h-2.5 rounded-full transition-all duration-500 ease-in-out" 
+          style={{ width: `${progress}%` }}
+        ></div>
+      </div>
+    );
+  };
+
   // 修改handleGenerate函数
   const handleGenerate = async () => {
     if (isGenerating) return;
 
     setIsGenerating(true);
     setGeneratedStory([]); // 清空现有故事
+    setGenerationStatus({
+      stage: 'preparing',
+      message: '正在准备生成您的独特故事...',
+      progress: 10
+    });
     
     try {
       const apiKey = import.meta.env.VITE_DEEPSEEK_API_KEY;
@@ -123,6 +153,13 @@ export function Create() {
       if (!apiKey) {
         throw new Error('API Key is missing');
       }
+
+      // 更新生成状态
+      setGenerationStatus({
+        stage: 'generating_story',
+        message: '正在创作故事情节，请稍候...',
+        progress: 30
+      });
 
       const response = await axios.post('https://api.deepseek.com/chat/completions', {
         model: "deepseek-chat",
@@ -156,8 +193,8 @@ export function Create() {
             content: `主题：${theme}`
           }
         ],
-        max_tokens: 2000,
-        temperature: 0.7,
+        max_tokens: 3000,
+        temperature: 1.5,
         response_format: { type: "json_object" },
         stream: false
       }, {
@@ -165,7 +202,24 @@ export function Create() {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json'
         },
-        timeout: 60000 // 增加到60秒
+        timeout: 40000,
+        onDownloadProgress: (progressEvent) => {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
+          setGenerationStatus(prev => ({
+            ...prev,
+            message: `正在生成故事 (${percentCompleted}%)...`,
+            progress: Math.min(60, 30 + percentCompleted / 2)
+          }));
+        }
+      });
+
+      // 更新解析状态
+      setGenerationStatus({
+        stage: 'parsing',
+        message: '正在整理故事内容...',
+        progress: 80
       });
 
       console.log('Story Generation Response:', response.data);
@@ -189,6 +243,13 @@ export function Create() {
         imagePromptEn: scene.imagePromptEN
       }));
 
+      // 更新完成状态
+      setGenerationStatus({
+        stage: 'completed',
+        message: '故事生成成功！',
+        progress: 100
+      });
+
       // 先设置故事并跳转到故事预览页
       setGeneratedStory(storyPages);
       setCurrentPage(0);
@@ -196,6 +257,14 @@ export function Create() {
 
     } catch (error) {
       console.error('Story Generation Error:', error);
+      
+      // 更新错误状态
+      setGenerationStatus({
+        stage: 'error',
+        message: '生成故事时出现错误，请重试',
+        progress: 0
+      });
+
       alert('生成故事时出现错误，请重试');
     } finally {
       setIsGenerating(false);
@@ -224,7 +293,24 @@ export function Create() {
 
   // 在插画设定页的"开始生成"按钮点击处理函数
   const handleIllustrationSettingsNext = async () => {
-    await handleIllustrationGeneration();
+    // 临时模拟图片数组
+    const MOCK_IMAGES = [
+      'https://picsum.photos/800/600?random=1',
+      'https://picsum.photos/800/600?random=2',
+      'https://picsum.photos/800/600?random=3',
+      'https://picsum.photos/800/600?random=4',
+      'https://picsum.photos/800/600?random=5'
+    ];
+
+    // 使用模拟图片更新故事页面
+    const updatedStoryPages = generatedStory.map((page, index) => ({
+      ...page,
+      imageUrl: MOCK_IMAGES[index % MOCK_IMAGES.length],
+      imagePrompt: `模拟插画 - ${page.title}`
+    }));
+
+    setGeneratedStory(updatedStoryPages);
+    setStep('illustration');
   };
 
   const handleUpdateIllustrationSettings = (key: string, value: string) => {
@@ -277,7 +363,13 @@ export function Create() {
           },
           {
             role: "user", 
-            content: "请生成6个独特的儿童故事主题，要求：\n1. 每个主题不超过6个字\n2. 每个主题要属于不同的类型，并在括号中标注类型\n3. 避免使用相似的元素\n4. 主题要具有想象力和教育意义\n5. 格式要求：主题（类型），如"云朵裁缝店（奇幻）"\n请用换行分隔每个主题，并确保每个主题都带有类型标注。"
+            content: `请生成6个独特的儿童故事主题，要求：
+1. 每个主题不超过6个字
+2. 每个主题要属于不同的类型，并在括号中标注类型
+3. 避免使用相似的元素
+4. 主题要具有想象力和教育意义
+5. 格式要求：主题（类型），如"云朵裁缝店（奇幻）"
+请用换行分隔每个主题，并确保每个主题都带有类型标注。`
           }
         ],
         max_tokens: 200,
@@ -347,16 +439,6 @@ export function Create() {
     }
   };
 
-  const handleNextTheme = () => {
-    setCurrentThemeIndex((prev) => (prev + 1) % randomThemes.length);
-  };
-
-  const handlePrevTheme = () => {
-    setCurrentThemeIndex((prev) => 
-      prev === 0 ? randomThemes.length - 1 : prev - 1
-    );
-  };
-
   // 添加初始化标志
   const isInitialized = useRef(false);
 
@@ -378,46 +460,27 @@ export function Create() {
     // 不需要cleanup函数，因为我们使用ref来控制
   }, []); // 依赖项为空数组
 
-  // 添加测试函数
-  const testRecraftAPI = async () => {
-    try {
-      const response = await axios.post(
-        'https://external.api.recraft.ai/v1/images/generations',
-        {
-          prompt: '一个疯狂的场景，钟表疯狂地滴答作响，指针失控地旋转。一个小女孩和一位老人一起工作，使用工具和智慧来安抚钟表，象征着忙碌生活的减速。',
-          style: 'digital_illustration',
-          substyle: 'child_book',
-          n: 1,
-          size: '1707x1024',
-          response_format: 'url'
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_RECRAFT_API_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      
-      console.log('Recraft API Response:', response.data);
-      if (response.data.data?.[0]?.url) {
-        // 显示生成的图片
-        const testImage = document.createElement('img');
-        testImage.src = response.data.data[0].url;
-        testImage.style.maxWidth = '300px';
-        testImage.style.border = '2px solid #ccc';
-        
-        const container = document.getElementById('test-image-container');
-        if (container) {
-          container.innerHTML = '';
-          container.appendChild(testImage);
-        }
-      }
-    } catch (error) {
-      console.error('Recraft API Error:', error);
-      alert('API调用失败，请检查控制台获取详细信息');
-    }
-  };
+// 在现有的 Create.tsx 中添加保存功能
+const handleSaveStory = async () => {
+  try {
+    const storyData = {
+      title: currentPage.title || '',
+      theme: selectedTheme?.theme || '',
+      content: currentPage.content,
+      imagePrompt: currentPage.imagePrompt,
+      imageUrl: currentPage.imageUrl || '',
+      titleEn: currentPage.titleEn,
+      contentEn: currentPage.contentEn,
+      imagePromptEn: currentPage.imagePromptEn
+    };
+
+    await storyService.saveStory(storyData);
+    alert('绘本保存成功！');
+    navigate('/'); // 保存成功后跳转到首页
+  } catch (error) {
+    alert('保存失败，请确保已登录并重试');
+  }
+};
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -451,6 +514,38 @@ export function Create() {
           <span className="ml-2">生成绘本</span>
         </div>
       </div>
+
+      {isGenerating && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl text-center">
+            <ProgressBar progress={generationStatus.progress} />
+            <div className="mb-6">
+              {generationStatus.stage === 'preparing' && (
+                <Sparkles className="mx-auto h-16 w-16 text-yellow-500 animate-pulse" />
+              )}
+              {generationStatus.stage === 'generating_story' && (
+                <Loader2 className="mx-auto h-16 w-16 text-blue-500 animate-spin" />
+              )}
+              {generationStatus.stage === 'parsing' && (
+                <BookOpen className="mx-auto h-16 w-16 text-green-500 animate-bounce" />
+              )}
+              {generationStatus.stage === 'completed' && (
+                <div className="text-6xl text-green-500">✨</div>
+              )}
+              {generationStatus.stage === 'error' && (
+                <div className="text-6xl text-red-500">❌</div>
+              )}
+            </div>
+            <h3 className="text-xl font-semibold mb-4 text-gray-800">
+              {generationStatus.message}
+            </h3>
+            <p className="text-sm text-gray-600">
+              {generationStatus.stage === 'generating_story' && '故事正在构思中，请耐心等待...'}
+              {generationStatus.stage === 'parsing' && '即将为您呈现精彩故事！'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {step === 'theme' ? (
         /* Theme Input Section */
@@ -699,22 +794,6 @@ export function Create() {
       ) : (
         /* Storybook Preview Section */
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg">
-          {/* 添加测试按钮和显示区域 */}
-          <div className="mb-8">
-            <button
-              onClick={testRecraftAPI}
-              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-            >
-              测试Recraft API
-            </button>
-            <div 
-              id="test-image-container" 
-              className="mt-4 min-h-[200px] border-2 border-dashed border-gray-200 rounded-lg p-4 flex items-center justify-center"
-            >
-              <p className="text-gray-500">生成的图片将显示在这里</p>
-            </div>
-          </div>
-          
           {isGeneratingImages ? (
             <div className="flex flex-col items-center justify-center min-h-[600px] space-y-4">
               <Loader2 className="w-12 h-12 animate-spin text-indigo-600" />
@@ -728,6 +807,13 @@ export function Create() {
                   <h2 className="text-2xl font-bold text-indigo-900">绘本预览</h2>
                 </div>
                 <div className="flex items-center space-x-4">
+                  <button
+                    onClick={handleSaveStory}
+                    className="px-4 py-2 rounded-full bg-green-600 text-white hover:bg-green-700 transition-colors flex items-center space-x-2"
+                  >
+                    <Save className="h-4 w-4" />
+                    <span>保存绘本</span>
+                  </button>
                   <button className="px-4 py-2 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors flex items-center space-x-2">
                     <Download className="h-4 w-4" />
                     <span>下载绘本</span>
