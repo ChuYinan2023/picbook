@@ -56,7 +56,8 @@ export const storyService = {
       userId,
       titleEn: story.titleEn,
       imagePrompt: story.imagePrompt,
-      imageUrl: story.imageUrl,
+      // 如果没有 imageUrl，尝试从第一页获取
+      imageUrl: story.imageUrl || (storyPages[0]?.imageUrl || '/default-book-cover.png'),
       content: story.content,
       imagePromptEn: story.imagePromptEn,
       contentEn: story.contentEn
@@ -82,7 +83,26 @@ export const storyService = {
     }
 
     const stories = JSON.parse(localStorage.getItem('stories') || '[]');
-    return stories.filter((story: Story) => story.userId === userId);
+    
+    // 为每个故事动态添加 imageUrl（如果不存在）
+    const updatedStories = stories.map((story: Story) => {
+      // 如果故事没有 imageUrl，尝试从第一页获取
+      if (!story.imageUrl && story.pages && story.pages.length > 0) {
+        story.imageUrl = story.pages[0].imageUrl || '/default-book-cover.png';
+      }
+      
+      // 如果仍然没有 imageUrl，使用默认封面
+      if (!story.imageUrl) {
+        story.imageUrl = '/default-book-cover.png';
+      }
+      
+      return story;
+    }).filter((story: Story) => story.userId === userId);
+
+    // 更新 localStorage 中的故事列表
+    localStorage.setItem('stories', JSON.stringify(stories));
+
+    return updatedStories;
   },
 
   // 获取单个绘本详情
