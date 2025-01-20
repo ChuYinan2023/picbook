@@ -69,7 +69,7 @@ export function Home() {
   }, [isLoggedIn]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100 pb-24">
       {/* 欢迎区域 */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-8">
         <div className="text-center">
@@ -99,15 +99,8 @@ export function Home() {
           <div className="flex justify-between items-center mb-8">
             <div>
               <h2 className="text-2xl font-bold text-gray-900">我的作品</h2>
-              <p className="mt-1 text-gray-500">这里展示了您创作的所有绘本</p>
+              <p className="mt-1 text-gray-500">这里展示了您创作的所有绘本作品</p>
             </div>
-            <button
-              onClick={() => navigate('/create')}
-              className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              <PlusCircle className="h-5 w-5" />
-              <span>新建绘本</span>
-            </button>
           </div>
 
           {userStories.length === 0 ? (
@@ -175,19 +168,16 @@ export function Home() {
       </div>
 
       {/* Stories Section */}
-      <div className="mt-24">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex justify-center space-x-4 mb-12">
           {[
-            { id: 'featured', label: '精选作品', icon: <Star className="h-5 w-5" /> },
-            { id: 'myworks', label: '我的作品', icon: <MagicWand className="h-5 w-5" /> }
+            { id: 'featured', label: '精选作品', icon: <Star className="h-5 w-5" /> }
           ].map(section => (
             <button
               key={section.id}
               onClick={() => navigate(`/${section.id}`)}
               className={`px-6 py-2 rounded-full flex items-center space-x-2 transition-all ${
-                section.id === 'featured' 
-                  ? 'bg-indigo-600 text-white' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                section.id === 'featured' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               {section.icon}
@@ -196,50 +186,84 @@ export function Home() {
           ))}
         </div>
 
-        <div className="grid grid-cols-6 gap-4">
+        <div className="grid grid-cols-3 gap-6 max-w-4xl mx-auto">
           {[
             { 
-              image: "/imgs/little-prince-in-blue-coat-standing-in-golden-whea.png", 
+              image: "/examples/story1.png", 
               title: "金色麦田的王子", 
-              author: "编辑推荐",
-              aspectRatio: '1:1'
+              author: "编辑推荐"
             },
             { 
-              image: "/imgs/------the-underground-kingdom---------------------.png", 
+              image: "/examples/story2.png", 
               title: "地下王国", 
-              author: "编辑推荐",
-              aspectRatio: '1:1'
+              author: "编辑推荐"
             },
             { 
-              image: "/imgs/little-prince-in-blue-coat-standing-in-golden-whea.png", 
+              image: "/examples/story3.png", 
               title: "星球旅行", 
-              author: "编辑推荐",
-              aspectRatio: '1:1'
+              author: "编辑推荐"
             }
           ].map((item, index) => (
             <Link key={index} to={`/story/${index}`}>
-              <div className="bg-white/80 backdrop-blur-sm rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all group">
-                <div className="relative overflow-hidden">
-                  <div className="w-full h-48">
+              <div className="bg-white/80 backdrop-blur-sm rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all">
+                <div className="relative">
+                  <div className="aspect-[4/3] w-full">
                     {item.image ? (
                       <img
                         src={item.image}
                         alt={item.title || '故事封面'}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                        className="w-full h-full object-cover"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                        <BookOpen className="h-12 w-12 text-gray-400" />
+                        <BookOpen className="h-8 w-8 text-gray-400" />
                       </div>
                     )}
                   </div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
-                    <h4 className="text-white font-bold text-lg">{item.title || '未命名故事'}</h4>
-                    <p className="text-white/70 text-sm">{item.author}</p>
+                  <div className="p-3">
+                    <h4 className="font-medium text-gray-900 text-sm">{item.title}</h4>
+                    <p className="text-xs text-gray-500 mt-1">{item.author}</p>
                   </div>
                 </div>
               </div>
             </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Why Choose Section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
+          为什么选择StoryMagic
+        </h2>
+        <div className="grid md:grid-cols-3 gap-6">
+          {[
+            {
+              icon: <BookOpen className="h-6 w-6 text-indigo-600" />,
+              title: "个性化绘本",
+              description: "用AI助力，轻松创作专属故事"
+            },
+            {
+              icon: <Palette className="h-6 w-6 text-green-600" />,
+              title: "智能插画",
+              description: "AI生成与故事完美契合的画面"
+            },
+            {
+              icon: <Globe className="h-6 w-6 text-blue-600" />,
+              title: "多语言支持",
+              description: "中英双语，跨文化阅读体验"
+            }
+          ].map((feature, index) => (
+            <div 
+              key={index} 
+              className="transform transition-all hover:-translate-y-2 hover:scale-105"
+            >
+              <FeatureCard 
+                icon={feature.icon} 
+                title={feature.title} 
+                description={feature.description} 
+              />
+            </div>
           ))}
         </div>
       </div>
