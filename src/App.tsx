@@ -4,6 +4,7 @@ import { Navigation } from './components/Navigation';
 import { Home } from './pages/Home';
 import { Create } from './pages/Create';
 import Login from './pages/Login';
+import { Story } from './pages/Story';
 import { authService } from './services/authService';
 
 // 私有路由组件
@@ -19,6 +20,11 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/create" element={<Create />} />
+        <Route path="/story/:id" element={
+          <PrivateRoute>
+            <Story />
+          </PrivateRoute>
+        } />
         <Route
           path="/"
           element={

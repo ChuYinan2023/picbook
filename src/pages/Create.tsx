@@ -82,21 +82,17 @@ export function Create() {
         ? randomThemes[currentThemeIndex]?.theme 
         : '未知主题';
 
-      const storyData = {
+      const savedStory = await storyService.saveStory({
         title: currentStoryPage.title || generatedStory[0].title || '未命名绘本',
         theme: themeFromRandomThemes,
-        content: currentStoryPage.content,
-        imagePrompt: currentStoryPage.imagePrompt,
-        imageUrl: currentStoryPage.imageUrl || '',
-        titleEn: currentStoryPage.titleEn,
-        contentEn: currentStoryPage.contentEn,
-        imagePromptEn: currentStoryPage.imagePromptEn
-      };
-
-      // 调试：打印将要保存的故事数据
-      console.log('准备保存的故事数据:', storyData);
-
-      const savedStory = await storyService.saveStory(storyData);
+        pages: generatedStory.map(page => ({
+          content: page.content,
+          imageUrl: page.imageUrl || '',
+          imagePrompt: page.imagePrompt,
+          contentEn: page.contentEn,
+          imagePromptEn: page.imagePromptEn
+        }))
+      });
       
       // 调试：打印保存成功的故事
       console.log('故事保存成功:', savedStory);
