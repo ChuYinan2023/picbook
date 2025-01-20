@@ -376,24 +376,20 @@ export function Create() {
 
   // 在插画设定页的"开始生成"按钮点击处理函数
   const handleIllustrationSettingsNext = async () => {
-    // 临时模拟图片数组
-    const MOCK_IMAGES = [
-      'https://picsum.photos/800/600?random=1',
-      'https://picsum.photos/800/600?random=2',
-      'https://picsum.photos/800/600?random=3',
-      'https://picsum.photos/800/600?random=4',
-      'https://picsum.photos/800/600?random=5'
-    ];
+    if (isGeneratingImages || generatedStory.length === 0) return;
 
-    // 使用模拟图片更新故事页面
-    const updatedStoryPages = generatedStory.map((page, index) => ({
-      ...page,
-      imageUrl: MOCK_IMAGES[index % MOCK_IMAGES.length],
-      imagePrompt: `模拟插画 - ${page.title}`
-    }));
-
-    setGeneratedStory(updatedStoryPages);
-    setStep('illustration');
+    try {
+      setIsGeneratingImages(true);
+      // 生成插画
+      const pagesWithIllustrations = await generateIllustrations(generatedStory);
+      setGeneratedStory(pagesWithIllustrations);
+      setStep('illustration');
+    } catch (error) {
+      console.error('Error generating illustrations:', error);
+      alert('生成插画时出现错误，请重试');
+    } finally {
+      setIsGeneratingImages(false);
+    }
   };
 
   const handleUpdateIllustrationSettings = (key: string, value: string) => {

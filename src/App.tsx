@@ -5,6 +5,7 @@ import { Home } from './pages/Home';
 import { Create } from './pages/Create';
 import Login from './pages/Login';
 import { Story } from './pages/Story';
+import { MyStories } from './pages/MyStories';
 import { authService } from './services/authService';
 
 // 私有路由组件
@@ -25,6 +26,14 @@ function App() {
             <Story />
           </PrivateRoute>
         } />
+        <Route 
+          path="/my-stories" 
+          element={
+            <PrivateRoute>
+              <MyStories />
+            </PrivateRoute>
+          } 
+        />
         <Route
           path="/"
           element={
