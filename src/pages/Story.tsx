@@ -95,6 +95,13 @@ export function Story() {
               className="w-full h-full object-cover"
             />
             
+            {/* 文字叠加区域 */}
+            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/70 to-transparent">
+              <p className="text-2xl font-medium text-white leading-relaxed drop-shadow-lg">
+                {currentStoryPage.content}
+              </p>
+            </div>
+            
             {/* 翻页按钮 */}
             <div className="absolute inset-0 flex items-center justify-between px-4">
               <button
@@ -118,24 +125,38 @@ export function Story() {
             </div>
           </div>
 
-          {/* 文字内容区域 */}
-          <div className="p-6">
-            <p className="text-lg text-gray-900 leading-relaxed">
-              {currentStoryPage.content}
-            </p>
-            
-            {/* 页码指示器 */}
-            <div className="mt-6 flex items-center justify-center space-x-2">
-              {story.pages.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentPage(index)}
-                  className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                    currentPage === index ? 'bg-indigo-600' : 'bg-gray-300 hover:bg-gray-400'
-                  }`}
+          {/* 缩略图导航 */}
+          <div className="px-4 py-3 bg-gray-50 flex space-x-3 overflow-x-auto">
+            {story.pages.map((page, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentPage(index)}
+                className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden transition-all duration-200 ${
+                  currentPage === index 
+                    ? 'ring-2 ring-indigo-500 scale-105' 
+                    : 'hover:ring-1 hover:ring-gray-300 opacity-70 hover:opacity-100'
+                }`}
+              >
+                <img
+                  src={page.imageUrl}
+                  alt={`第 ${index + 1} 页缩略图`}
+                  className="w-full h-full object-cover"
                 />
-              ))}
-            </div>
+              </button>
+            ))}
+          </div>
+
+          {/* 页码指示器 */}
+          <div className="mt-6 flex items-center justify-center space-x-2">
+            {story.pages.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentPage(index)}
+                className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                  currentPage === index ? 'bg-indigo-600' : 'bg-gray-300 hover:bg-gray-400'
+                }`}
+              />
+            ))}
           </div>
         </div>
 
