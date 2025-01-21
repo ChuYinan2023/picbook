@@ -297,26 +297,33 @@ export function Create() {
 
     setIsGenerating(true);
     setGeneratedStory([]); // 清空现有故事
+    
+    // 初始状态
     setGenerationStatus({
       stage: 'preparing',
       message: '正在准备生成您的独特故事...',
       progress: 10
     });
-    
+
+    // 创建一个进度更新的函数
+    const updateProgress = (stage: string, message: string, progress: number) => {
+      setGenerationStatus(prev => ({
+        stage,
+        message,
+        progress
+      }));
+    };
+
     try {
-      const apiKey = import.meta.env.VITE_DEEPSEEK_API_KEY;
-      
-      if (!apiKey) {
-        throw new Error('API Key is missing');
-      }
+      // 模拟准备阶段
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      updateProgress('generating_story', '正在构思故事情节...', 30);
 
-      // 更新生成状态
-      setGenerationStatus({
-        stage: 'generating_story',
-        message: '正在创作故事情节，请稍候...',
-        progress: 30
-      });
+      // 模拟生成阶段
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      updateProgress('generating_story', '深入故事细节创作...', 50);
 
+      // 发起API请求
       const response = await axios.post('https://api.deepseek.com/chat/completions', {
         model: "deepseek-chat",
         messages: [
@@ -336,13 +343,7 @@ export function Create() {
                 }
                 // 另外5个场景...
               ]
-            }
-            
-            要求：
-            1. 每个场景都要连贯，推进故事情节
-            2. 场景描述生动有趣，适合儿童阅读
-            3. 英文和中文描述要意境相近
-            4. 图像描述要具体、生动，便于AI绘图`
+            }`
           },
           {
             role: "user", 
@@ -355,32 +356,17 @@ export function Create() {
         stream: false
       }, {
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${import.meta.env.VITE_DEEPSEEK_API_KEY}`,
           'Content-Type': 'application/json'
         },
-        timeout: 40000,
-        onDownloadProgress: (progressEvent) => {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
-          setGenerationStatus(prev => ({
-            ...prev,
-            message: `正在生成故事 (${percentCompleted}%)...`,
-            progress: Math.min(40, 30 + percentCompleted / 2)
-          }));
-        }
+        timeout: 40000
       });
 
-      // 更新解析状态
-      setGenerationStatus({
-        stage: 'parsing',
-        message: '正在整理故事内容...',
-        progress: 80
-      });
+      // 解析阶段
+      updateProgress('parsing', '正在整理故事内容...', 70);
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-      console.log('Story Generation Response:', response.data);
-
-      // 解析API返回的场景
+      // 解析响应
       const parsedResponse = JSON.parse(response.data.choices[0].message.content);
       const generatedScenes = parsedResponse.scenes || [];
 
@@ -399,28 +385,20 @@ export function Create() {
         imagePromptEn: scene.imagePromptEN
       }));
 
-      // 更新完成状态
-      setGenerationStatus({
-        stage: 'completed',
-        message: '故事生成成功！',
-        progress: 100
-      });
+      // 完成阶段
+      updateProgress('completed', '故事生成成功！', 100);
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // 先设置故事并跳转到故事预览页
+      // 设置故事并跳转到预览页
       setGeneratedStory(storyPages);
       setCurrentPage(0);
       setStep('story');
 
     } catch (error) {
       console.error('Story Generation Error:', error);
+      updateProgress('error', '生成故事时出现错误，请重试', 0);
       
-      // 更新错误状态
-      setGenerationStatus({
-        stage: 'error',
-        message: '生成故事时出现错误，请重试',
-        progress: 0
-      });
-
+      // 显示错误提示
       alert('生成故事时出现错误，请重试');
     } finally {
       setIsGenerating(false);
@@ -528,6 +506,67 @@ export function Create() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100 py-8">
       <div className="max-w-4xl mx-auto px-4">
+        {/* 生成过程中的全屏加载UI */}
+        {isGenerating && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+              <div className="text-center space-y-6">
+                {/* 进度条 */}
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-500 ease-out"
+                    style={{ 
+                      width: `${generationStatus.progress}%`,
+                    }}
+                  />
+                </div>
+
+                {/* 状态图标 */}
+                <div className="relative w-24 h-24 mx-auto">
+                  {generationStatus.stage === 'preparing' && (
+                    <div className="animate-bounce">
+                      <Sparkles className="w-24 h-24 text-yellow-500" />
+                    </div>
+                  )}
+                  {generationStatus.stage === 'generating_story' && (
+                    <div className="animate-spin">
+                      <Loader2 className="w-24 h-24 text-blue-500" />
+                    </div>
+                  )}
+                  {generationStatus.stage === 'parsing' && (
+                    <div className="animate-pulse">
+                      <BookOpen className="w-24 h-24 text-green-500" />
+                    </div>
+                  )}
+                  {generationStatus.stage === 'completed' && (
+                    <div className="animate-bounce">
+                      <div className="text-6xl">✨</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 状态文本 */}
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    {generationStatus.message}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    {generationStatus.stage === 'preparing' && '正在准备创作您的故事...'}
+                    {generationStatus.stage === 'generating_story' && '故事正在编织中，请稍候...'}
+                    {generationStatus.stage === 'parsing' && '即将完成，马上为您呈现...'}
+                    {generationStatus.stage === 'completed' && '创作完成！'}
+                  </p>
+                </div>
+
+                {/* 提示文本 */}
+                <p className="text-xs text-gray-400 italic">
+                  故事生成可能需要约10秒钟，请耐心等待
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {step === 'theme' && (
           <div className="space-y-8">
             <div className="text-center space-y-4">
@@ -588,7 +627,7 @@ export function Create() {
                 <button
                   key={index}
                   onClick={() => setTheme(item.title)}
-                  className="p-6 rounded-lg shadow-md transition-all duration-200 bg-white hover:shadow-lg hover:scale-105"
+                  className="p-6 rounded-lg shadow-md transition-all duration-200 bg-white hover:shadow-lg"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-lg font-semibold text-gray-900">
