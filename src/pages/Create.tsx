@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Sparkles, Palette, ArrowRight, Loader2, ChevronLeft, ChevronRight, Pencil, BookOpen, Download, Share2, Send, Save } from 'lucide-react';
 import { storyService } from '../services/storyService';
-import { authService } from '../services/authService'; 
+import { authService } from '../services/authService';
+import { getRandomInspirations, Inspiration } from '../data/inspirations';
 
 interface StoryPage {
   title?: string;
@@ -45,7 +46,7 @@ export function Create() {
   const [generatedStory, setGeneratedStory] = useState<StoryPage[]>([]);
   const [isGeneratingImages, setIsGeneratingImages] = useState(false);
   const [currentThemeIndex, setCurrentThemeIndex] = useState(0);
-  const [randomThemes, setRandomThemes] = useState<ThemeWithType[]>([]);
+  const [randomThemes, setRandomThemes] = useState<Inspiration[]>([]);
   const [isLoadingThemes, setIsLoadingThemes] = useState(false);
 
   // 插画设定状态
@@ -94,7 +95,7 @@ export function Create() {
 
       // 从随机主题中获取主题，如果没有则使用默认值
       const themeFromRandomThemes = randomThemes.length > 0 
-        ? randomThemes[currentThemeIndex]?.theme 
+        ? randomThemes[currentThemeIndex]?.title 
         : '未知主题';
 
       const savedStory = await storyService.saveStory({
@@ -479,111 +480,24 @@ export function Create() {
     setCurrentPage(prev => Math.min(generatedStory.length - 1, prev + 1));
   };
 
-  // 修改generateRandomThemes函数，避免重复调用
-  const generateRandomThemes = async () => {
-    if (isLoadingThemes) return; // 防止重复调用
+  // 修改generateRandomThemes函数，使用本地数据
+  const generateRandomThemes = () => {
+    if (isLoadingThemes) return;
     
     setIsLoadingThemes(true);
     try {
-      const apiKey = import.meta.env.VITE_DEEPSEEK_API_KEY;
-      
-      // 开发环境详细日志
-      console.log('Complete Environment:', import.meta.env);
-      console.log('API Key Full Value:', apiKey);
-
-      console.log('API Key (first 5 chars):', apiKey?.substring(0, 5) || 'N/A');
-      console.log('API Key Length:', apiKey?.length || 0);
-      console.log('Attempting to generate themes...');
-
-      if (!apiKey) {
-        throw new Error(`
-          API Key is missing. 
-          Please check your .env file and ensure:
-          1. The file is named exactly '.env'
-          2. Contains VITE_DEEPSEEK_API_KEY=your_api_key
-          3. Restart the development server
-        `);
-      }
-
-      const response = await axios.post('https://api.deepseek.com/chat/completions', {
-        model: "deepseek-chat",
-        messages: [
-          {
-            role: "system", 
-            content: "你是一个儿童绘本主题生成专家。你需要生成独特、富有创意的故事主题，每个主题都应该属于不同的类型（如奇幻、科幻、生活、自然、冒险等）。确保主题之间有足够的差异性，避免重复的元素和相似的场景。每个主题必须包含类型标注，格式为：主题（类型）"
-          },
-          {
-            role: "user", 
-            content: `请生成6个独特的儿童故事主题，要求：
-1. 每个主题不超过6个字
-2. 每个主题要属于不同的类型，并在括号中标注类型
-3. 避免使用相似的元素
-4. 主题要具有想象力和教育意义
-5. 格式要求：主题（类型），如"云朵裁缝店（奇幻）"
-请用换行分隔每个主题，并确保每个主题都带有类型标注。`
-          }
-        ],
-        max_tokens: 300,
-        temperature: 1.5,  // 增加到1.0以获得更多样化的结果
-        presence_penalty: 2,  // 添加presence_penalty来减少重复
-        frequency_penalty: 2,  // 添加frequency_penalty来避免常见模式
-        stream: false
-      }, {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 10000
-      });
-
-      console.log('Full API Response:', JSON.stringify(response.data, null, 2));
-
-      const themes = response.data.choices[0].message.content
-        .split('\n')
-        .filter(line => line.trim())
-        .map(theme => {
-          const themeText = theme.replace(/^\d+\.?\s*/, '').trim();
-          // 提取主题和类型，使用中文括号或英文括号
-          const match = themeText.match(/^(.+?)(?:[（(]([^）)]+)[）)])/);
-          if (match) {
-            return {
-              theme: match[1].trim(),
-              type: match[2].trim()
-            };
-          }
-          return null;
-        })
-        .filter(theme => theme !== null);
-
-      console.log('Generated Themes:', themes);
-      setRandomThemes(themes.length > 0 ? themes : [
-        { theme: "勇敢的小兔子", type: "冒险" },
-        { theme: "神秘的森林", type: "奇幻" },
-        { theme: "海底冒险", type: "科幻" },
-        { theme: "太空旅行", type: "科幻" },
-        { theme: "友谊的魔法", type: "生活" },
-        { theme: "梦想花园", type: "自然" }
-      ]);
+      const themes = getRandomInspirations(6);
+      setRandomThemes(themes);
     } catch (error) {
-      console.error('Complete Error Object:', error);
-      
-      if (axios.isAxiosError(error)) {
-        console.error('Axios Error Details:', {
-          message: error.message,
-          status: error.response?.status,
-          data: JSON.stringify(error.response?.data, null, 2),
-          headers: error.response?.headers
-        });
-      }
-
-      // 如果API调用失败，提供默认主题
+      console.error('Error generating themes:', error);
+      // 如果出错，使用默认主题
       setRandomThemes([
-        { theme: "勇敢的小兔子", type: "冒险" },
-        { theme: "神秘的森林", type: "奇幻" },
-        { theme: "海底冒险", type: "科幻" },
-        { theme: "太空旅行", type: "科幻" },
-        { theme: "友谊的魔法", type: "生活" },
-        { theme: "梦想花园", type: "自然" }
+        { title: "勇敢的小兔子", category: "冒险" },
+        { title: "神秘的森林", category: "奇幻" },
+        { title: "海底冒险", category: "科幻" },
+        { title: "太空旅行", category: "科幻" },
+        { title: "友谊的魔法", category: "生活" },
+        { title: "梦想花园", category: "自然" }
       ]);
     } finally {
       setIsLoadingThemes(false);
@@ -612,412 +526,335 @@ export function Create() {
   }, []); // 依赖项为空数组
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      {/* Progress Steps */}
-      <div className="flex items-center justify-center mb-12">
-        <div className={`flex items-center ${step === 'theme' ? 'text-indigo-600' : 'text-gray-400'}`}>
-          <div className="w-8 h-8 rounded-full border-2 flex items-center justify-center">
-            1
-          </div>
-          <span className="ml-2">选择主题</span>
-        </div>
-        <ArrowRight className="mx-4 text-gray-400" />
-        <div className={`flex items-center ${step === 'story' ? 'text-indigo-600' : 'text-gray-400'}`}>
-          <div className="w-8 h-8 rounded-full border-2 flex items-center justify-center">
-            2
-          </div>
-          <span className="ml-2">生成故事</span>
-        </div>
-        <ArrowRight className="mx-4 text-gray-400" />
-        <div className={`flex items-center ${step === 'illustration-settings' ? 'text-indigo-600' : 'text-gray-400'}`}>
-          <div className="w-8 h-8 rounded-full border-2 flex items-center justify-center">
-            3
-          </div>
-          <span className="ml-2">插画设定</span>
-        </div>
-        <ArrowRight className="mx-4 text-gray-400" />
-        <div className={`flex items-center ${step === 'illustration' ? 'text-indigo-600' : 'text-gray-400'}`}>
-          <div className="w-8 h-8 rounded-full border-2 flex items-center justify-center">
-            4
-          </div>
-          <span className="ml-2">生成绘本</span>
-        </div>
-      </div>
-
-      {isGenerating && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl text-center">
-            <ProgressBar progress={generationStatus.progress} />
-            <div className="mb-6">
-              {generationStatus.stage === 'preparing' && (
-                <Sparkles className="mx-auto h-16 w-16 text-yellow-500 animate-pulse" />
-              )}
-              {generationStatus.stage === 'generating_story' && (
-                <Loader2 className="mx-auto h-16 w-16 text-blue-500 animate-spin" />
-              )}
-              {generationStatus.stage === 'parsing' && (
-                <BookOpen className="mx-auto h-16 w-16 text-green-500 animate-bounce" />
-              )}
-              {generationStatus.stage === 'completed' && (
-                <div className="text-6xl text-green-500">✨</div>
-              )}
-              {generationStatus.stage === 'error' && (
-                <div className="text-6xl text-red-500">❌</div>
-              )}
-            </div>
-            <h3 className="text-xl font-semibold mb-4 text-gray-800">
-              {generationStatus.message}
-            </h3>
-            <p className="text-sm text-gray-600">
-              {generationStatus.stage === 'generating_story' && '故事正在构思中，请耐心等待...'}
-              {generationStatus.stage === 'parsing' && '即将为您呈现精彩故事！'}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {step === 'theme' ? (
-        /* Theme Input Section */
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg">
-          <div className="flex items-center space-x-2 mb-6">
-            <Sparkles className="h-6 w-6 text-yellow-500" />
-            <h2 className="text-2xl font-bold text-indigo-900">创作主题</h2>
-          </div>
-          
-          <div className="space-y-6">
-            <div>
-              <label htmlFor="theme" className="block text-sm font-medium text-gray-700 mb-2">
-                你想创作一个什么样的故事？
-              </label>
-              <input
-                type="text"
-                id="theme"
-                value={theme}
-                onChange={(e) => setTheme(e.target.value)}
-                placeholder="例如：一只爱冒险的小兔子..."
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-              />
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        {step === 'theme' && (
+          <div className="space-y-8">
+            <div className="text-center space-y-4">
+              <h1 className="text-4xl font-bold text-gray-900">选择故事主题</h1>
+              <p className="text-lg text-gray-600">
+                从以下主题中选择一个，或输入您的创意主题
+              </p>
             </div>
 
-            <div className="mb-4">
-              <div className="flex items-center mb-3">
-                <Sparkles className="h-5 w-5 text-indigo-600 mr-2" />
-                <h3 className="text-lg font-semibold text-indigo-900">灵感主题</h3>
-              </div>
-              
-              <div className="relative w-full">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {isLoadingThemes ? (
-                    Array(6).fill(0).map((_, index) => (
-                      <div 
-                        key={index} 
-                        className="p-4 bg-gray-100 rounded-lg animate-pulse"
-                      >
-                        <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-                      </div>
-                    ))
-                  ) : (
-                    randomThemes.length > 0 ? (
-                      randomThemes.map((suggestedTheme, index) => (
-                        <button
-                          key={index}
-                          onClick={() => setTheme(suggestedTheme.theme)}
-                          className="group relative p-6 bg-white rounded-xl shadow-sm border border-gray-100 hover:border-indigo-300 hover:shadow-md transition-all text-left overflow-hidden"
-                        >
-                          {/* 背景装饰 */}
-                          <div className="absolute top-0 right-0 w-20 h-20 transform translate-x-6 -translate-y-6 bg-gradient-to-br from-indigo-50 to-transparent rounded-full opacity-50 group-hover:opacity-70 transition-opacity"></div>
-                          
-                          {/* 主题内容 */}
-                          <div className="relative">
-                            <h3 className="text-lg font-medium text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">
-                              {suggestedTheme.theme}
-                            </h3>
-                            {suggestedTheme.type && (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
-                                {suggestedTheme.type}
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="col-span-full text-center text-gray-500">
-                        暂无主题，点击刷新按钮重新生成
-                      </div>
-                    )
-                  )}
+            {/* 添加自定义主题输入框 */}
+            <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6 mb-8">
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="customTheme" className="block text-sm font-medium text-gray-700 mb-1">
+                    自定义主题
+                  </label>
+                  <div className="flex gap-4">
+                    <input
+                      type="text"
+                      id="customTheme"
+                      value={theme}
+                      onChange={(e) => setTheme(e.target.value)}
+                      placeholder="输入您的创意主题..."
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <button
+                      onClick={handleGenerate}
+                      disabled={!theme.trim() || isGenerating}
+                      className={`px-6 py-2 rounded-lg flex items-center ${
+                        !theme.trim() || isGenerating
+                          ? 'bg-gray-300 cursor-not-allowed'
+                          : 'bg-blue-600 hover:bg-blue-700 text-white'
+                      }`}
+                    >
+                      {isGenerating ? (
+                        <>
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                          生成中
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-5 h-5 mr-2" />
+                          开始创作
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="text-center mb-6">
+              <h2 className="text-2xl font-semibold text-gray-800">推荐主题</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {randomThemes.map((item, index) => (
+                <button
+                  key={index}
+                  onClick={() => setTheme(item.title)}
+                  className="p-6 rounded-lg shadow-md transition-all duration-200 bg-white hover:shadow-lg hover:scale-105"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-lg font-semibold text-gray-900">
+                      {item.title}
+                    </span>
+                    <span className="px-2 py-1 text-sm rounded-full bg-blue-100 text-blue-800">
+                      {item.category}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex justify-center">
               <button
-                onClick={handleGenerate}
-                disabled={!theme.trim() || isGenerating}
-                className={`flex items-center justify-center px-6 py-3 rounded-full text-white text-lg transition-all transform hover:scale-105 ${
-                  theme.trim() && !isGenerating
-                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700'
-                    : 'bg-gray-400 cursor-not-allowed'
-                }`}
+                onClick={generateRandomThemes}
+                disabled={isLoadingThemes}
+                className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-400"
               >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="animate-spin mr-2 h-5 w-5" />
-                    生成中...
-                  </>
-                ) : (
-                  <>
-                    <Palette className="mr-2 h-5 w-5" />
-                    开始创作
-                  </>
-                )}
+                <Sparkles className="w-5 h-5 mr-2" />
+                {isLoadingThemes ? '加载中...' : '换一批主题'}
               </button>
-              <button
-                onClick={() => setTheme('')}
+            </div>
+          </div>
+        )}
+
+        {step === 'story' && (
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl font-bold text-indigo-900">故事预览</h2>
+              <div className="text-center mt-8">
+                <button
+                  onClick={handleStoryPreviewNext}
+                  className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  下一步
+                </button>
+              </div>
+            </div>
+
+            {/* All Story Pages in Single View */}
+            <div className="space-y-8">
+              {generatedStory.map((page, index) => (
+                <div 
+                  key={index} 
+                  className="w-full p-8 rounded-lg bg-white shadow-inner mb-4 border border-gray-100"
+                >
+                  <div className="mb-4">
+                    <h3 className="text-xl font-bold text-indigo-900 mb-2">
+                      场景{index + 1} - {page.title} | {page.titleEn}
+                    </h3>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="text-md font-semibold text-blue-700 mb-2">
+                      故事
+                    </h4>
+                    <div className="bg-blue-50 p-4 rounded-lg mb-2">
+                      <p className="text-gray-800">{page.content}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-md font-semibold text-green-700 mb-2">
+                      插画描述
+                    </h4>
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <p className="text-gray-800">{page.imagePrompt}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {step === 'illustration-settings' && (
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-2">
+                <Palette className="h-6 w-6 text-indigo-600" />
+                <h2 className="text-2xl font-bold text-indigo-900">插画设定</h2>
+              </div>
+              <div className="text-center mt-8">
+                <button
+                  onClick={handleIllustrationSettingsNext}
+                  disabled={isGeneratingImages}
+                  className={`px-6 py-2 rounded-lg transition-colors ${
+                    isGeneratingImages
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                  }`}
+                >
+                  {isGeneratingImages ? '生成中...' : '开始生成'}
+                </button>
+              </div>
+            </div>
+
+            {/* Illustration Model Selection */}
+            <div className="mb-6">
+              <div className="grid grid-cols-3 gap-8 max-w-3xl mx-auto">
+                {illustrationModels.map((model) => (
+                  <button
+                    key={model.id}
+                    onClick={() => {
+                      setIllustrationSettings(prev => ({
+                        ...prev,
+                        model: model.model,
+                        style: model.style,
+                        substyle: model.substyle,
+                        selectedId: model.id  // 添加选中的id
+                      }));
+                    }}
+                    className={`
+                      relative p-4 rounded-xl overflow-hidden
+                      border-2 transition-all duration-300
+                      ${illustrationSettings.selectedId === model.id
+                        ? 'border-indigo-600 shadow-lg' 
+                        : 'border-gray-200 hover:border-indigo-300'}
+                    `}
+                  >
+                    <div className="aspect-square mb-3">
+                      <img 
+                        src={model.thumbnail} 
+                        alt={model.name} 
+                        className="w-full h-full object-contain rounded-lg"
+                      />
+                    </div>
+                    <div className="text-center">
+                      <h4 className="font-medium text-gray-900">{model.name}</h4>
+                    </div>
+                    {illustrationSettings.selectedId === model.id && (
+                      <div className="absolute top-2 right-2 bg-indigo-600 text-white rounded-full p-1">
+                        <Sparkles className="w-4 h-4" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Aspect Ratio Selection */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-4">画面比例</h3>
+              <div className="grid grid-cols-3 gap-4">
+                {aspectRatios.map((ratio) => (
+                  <button
+                    key={ratio.id}
+                    onClick={() => {
+                      handleUpdateIllustrationSettings('aspectRatio', ratio.value);
+                      handleUpdateIllustrationSettings('aspectRatioId', ratio.id);
+                    }}
+                    className={`
+                      relative p-4 rounded-xl overflow-hidden
+                      border-2 transition-all duration-300
+                      ${illustrationSettings.aspectRatioId === ratio.id 
+                        ? 'border-indigo-600 shadow-lg' 
+                        : 'border-gray-200 hover:border-indigo-300'}
+                    `}
+                  >
+                    <div className="text-center">
+                      <h4 className="font-medium text-gray-900 text-xl">{ratio.id}</h4>
+                    </div>
+                    {illustrationSettings.aspectRatioId === ratio.id && (
+                      <div className="absolute top-2 right-2 bg-indigo-600 text-white rounded-full p-1">
+                        <Sparkles className="w-4 h-4" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center mt-8">
+              <button 
+                onClick={() => setStep('story')}
                 className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors"
               >
-                清空
+                返回
               </button>
             </div>
           </div>
-        </div>
-      ) : step === 'story' ? (
-        /* Story Display Section */
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl font-bold text-indigo-900">故事预览</h2>
-            <div className="text-center mt-8">
-              <button
-                onClick={handleStoryPreviewNext}
-                className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                下一步
-              </button>
-            </div>
-          </div>
+        )}
 
-          {/* All Story Pages in Single View */}
-          <div className="space-y-8">
-            {generatedStory.map((page, index) => (
-              <div 
-                key={index} 
-                className="w-full p-8 rounded-lg bg-white shadow-inner mb-4 border border-gray-100"
-              >
-                <div className="mb-4">
-                  <h3 className="text-xl font-bold text-indigo-900 mb-2">
-                    场景{index + 1} - {page.title} | {page.titleEn}
-                  </h3>
-                </div>
-
-                <div className="mb-4">
-                  <h4 className="text-md font-semibold text-blue-700 mb-2">
-                    故事
-                  </h4>
-                  <div className="bg-blue-50 p-4 rounded-lg mb-2">
-                    <p className="text-gray-800">{page.content}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-md font-semibold text-green-700 mb-2">
-                    插画描述
-                  </h4>
-                  <div className="bg-green-50 p-4 rounded-lg">
-                    <p className="text-gray-800">{page.imagePrompt}</p>
-                  </div>
-                </div>
+        {step === 'illustration' && (
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg">
+            {isGeneratingImages ? (
+              <div className="flex flex-col items-center justify-center min-h-[600px] space-y-4">
+                <Loader2 className="w-12 h-12 animate-spin text-indigo-600" />
+                <p className="text-lg text-gray-600">正在生成绘本...</p>
               </div>
-            ))}
-          </div>
-        </div>
-      ) : step === 'illustration-settings' ? (
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-2">
-              <Palette className="h-6 w-6 text-indigo-600" />
-              <h2 className="text-2xl font-bold text-indigo-900">插画设定</h2>
-            </div>
-            <div className="text-center mt-8">
-              <button
-                onClick={handleIllustrationSettingsNext}
-                disabled={isGeneratingImages}
-                className={`px-6 py-2 rounded-lg transition-colors ${
-                  isGeneratingImages
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                }`}
-              >
-                {isGeneratingImages ? '生成中...' : '开始生成'}
-              </button>
-            </div>
-          </div>
-
-          {/* Illustration Model Selection */}
-          <div className="mb-6">
-            <div className="grid grid-cols-3 gap-8 max-w-3xl mx-auto">
-              {illustrationModels.map((model) => (
-                <button
-                  key={model.id}
-                  onClick={() => {
-                    setIllustrationSettings(prev => ({
-                      ...prev,
-                      model: model.model,
-                      style: model.style,
-                      substyle: model.substyle,
-                      selectedId: model.id  // 添加选中的id
-                    }));
-                  }}
-                  className={`
-                    relative p-4 rounded-xl overflow-hidden
-                    border-2 transition-all duration-300
-                    ${illustrationSettings.selectedId === model.id
-                      ? 'border-indigo-600 shadow-lg' 
-                      : 'border-gray-200 hover:border-indigo-300'}
-                  `}
-                >
-                  <div className="aspect-square mb-3">
-                    <img 
-                      src={model.thumbnail} 
-                      alt={model.name} 
-                      className="w-full h-full object-contain rounded-lg"
-                    />
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center space-x-2">
+                    <BookOpen className="h-6 w-6 text-indigo-600" />
+                    <h2 className="text-2xl font-bold text-indigo-900">绘本预览</h2>
                   </div>
-                  <div className="text-center">
-                    <h4 className="font-medium text-gray-900">{model.name}</h4>
+                  <div className="flex items-center space-x-4">
+                    <button
+                      onClick={handleSaveStory}
+                      className="px-4 py-2 rounded-full bg-green-600 text-white hover:bg-green-700 transition-colors flex items-center space-x-2"
+                    >
+                      <Save className="h-4 w-4" />
+                      <span>保存绘本</span>
+                    </button>
+                    <button className="px-4 py-2 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors flex items-center space-x-2">
+                      <Download className="h-4 w-4" />
+                      <span>下载绘本</span>
+                    </button>
+                    <button className="px-4 py-2 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors flex items-center space-x-2">
+                      <Share2 className="h-4 w-4" />
+                      <span>分享</span>
+                    </button>
+                    <button className="px-4 py-2 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-colors flex items-center space-x-2">
+                      <Send className="h-4 w-4" />
+                      <span>发布作品</span>
+                    </button>
                   </div>
-                  {illustrationSettings.selectedId === model.id && (
-                    <div className="absolute top-2 right-2 bg-indigo-600 text-white rounded-full p-1">
-                      <Sparkles className="w-4 h-4" />
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Aspect Ratio Selection */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-4">画面比例</h3>
-            <div className="grid grid-cols-3 gap-4">
-              {aspectRatios.map((ratio) => (
-                <button
-                  key={ratio.id}
-                  onClick={() => {
-                    handleUpdateIllustrationSettings('aspectRatio', ratio.value);
-                    handleUpdateIllustrationSettings('aspectRatioId', ratio.id);
-                  }}
-                  className={`
-                    relative p-4 rounded-xl overflow-hidden
-                    border-2 transition-all duration-300
-                    ${illustrationSettings.aspectRatioId === ratio.id 
-                      ? 'border-indigo-600 shadow-lg' 
-                      : 'border-gray-200 hover:border-indigo-300'}
-                  `}
-                >
-                  <div className="text-center">
-                    <h4 className="font-medium text-gray-900 text-xl">{ratio.id}</h4>
-                  </div>
-                  {illustrationSettings.aspectRatioId === ratio.id && (
-                    <div className="absolute top-2 right-2 bg-indigo-600 text-white rounded-full p-1">
-                      <Sparkles className="w-4 h-4" />
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex justify-between items-center mt-8">
-            <button 
-              onClick={() => setStep('story')}
-              className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              返回
-            </button>
-          </div>
-        </div>
-      ) : (
-        /* Storybook Preview Section */
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg">
-          {isGeneratingImages ? (
-            <div className="flex flex-col items-center justify-center min-h-[600px] space-y-4">
-              <Loader2 className="w-12 h-12 animate-spin text-indigo-600" />
-              <p className="text-lg text-gray-600">正在生成绘本...</p>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center space-x-2">
-                  <BookOpen className="h-6 w-6 text-indigo-600" />
-                  <h2 className="text-2xl font-bold text-indigo-900">绘本预览</h2>
                 </div>
-                <div className="flex items-center space-x-4">
-                  <button
-                    onClick={handleSaveStory}
-                    className="px-4 py-2 rounded-full bg-green-600 text-white hover:bg-green-700 transition-colors flex items-center space-x-2"
-                  >
-                    <Save className="h-4 w-4" />
-                    <span>保存绘本</span>
-                  </button>
-                  <button className="px-4 py-2 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors flex items-center space-x-2">
-                    <Download className="h-4 w-4" />
-                    <span>下载绘本</span>
-                  </button>
-                  <button className="px-4 py-2 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors flex items-center space-x-2">
-                    <Share2 className="h-4 w-4" />
-                    <span>分享</span>
-                  </button>
-                  <button className="px-4 py-2 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-colors flex items-center space-x-2">
-                    <Send className="h-4 w-4" />
-                    <span>发布作品</span>
-                  </button>
-                </div>
-              </div>
 
-              <div className="flex gap-8">
-                {/* Main Preview */}
-                <div className="flex-1">
-                  <div className="bg-white rounded-lg shadow-lg overflow-hidden relative">
-                    <div className="aspect-[16/9] relative">
-                      <img
-                        src={generatedStory[currentPage]?.imageUrl}
-                        alt={`Page ${currentPage + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent">
-                        <p className="text-white text-base leading-snug mb-1 line-clamp-2">
-                          {generatedStory[currentPage]?.content}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Thumbnails moved to bottom */}
-                  <div className="flex justify-center space-x-4 mt-4">
-                    {generatedStory.map((page, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setCurrentPage(index)}
-                        className={`w-24 aspect-[16/9] rounded-lg overflow-hidden border-2 transition-all ${
-                          currentPage === index
-                            ? 'border-indigo-600 shadow-lg scale-105'
-                            : 'border-transparent hover:border-indigo-300'
-                        }`}
-                      >
+                <div className="flex gap-8">
+                  {/* Main Preview */}
+                  <div className="flex-1">
+                    <div className="bg-white rounded-lg shadow-lg overflow-hidden relative">
+                      <div className="aspect-[16/9] relative">
                         <img
-                          src={page.imageUrl}
-                          alt={`Thumbnail ${index + 1}`}
+                          src={generatedStory[currentPage]?.imageUrl}
+                          alt={`Page ${currentPage + 1}`}
                           className="w-full h-full object-cover"
                         />
-                      </button>
-                    ))}
+                        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent">
+                          <p className="text-white text-base leading-snug mb-1 line-clamp-2">
+                            {generatedStory[currentPage]?.content}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Thumbnails moved to bottom */}
+                    <div className="flex justify-center space-x-4 mt-4">
+                      {generatedStory.map((page, index) => (
+                        <button
+                          key={index}
+                          onClick={() => setCurrentPage(index)}
+                          className={`w-24 aspect-[16/9] rounded-lg overflow-hidden border-2 transition-all ${
+                            currentPage === index
+                              ? 'border-indigo-600 shadow-lg scale-105'
+                              : 'border-transparent hover:border-indigo-300'
+                          }`}
+                        >
+                          <img
+                            src={page.imageUrl}
+                            alt={`Thumbnail ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
