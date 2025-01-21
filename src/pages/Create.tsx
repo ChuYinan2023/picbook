@@ -13,6 +13,8 @@ interface StoryPage {
   illustrationSettings?: {
     model: string;
     aspectRatio: string;
+    style: string;
+    substyle: string;
   };
   titleEn?: string;
   contentEn?: string;
@@ -22,6 +24,15 @@ interface StoryPage {
 interface ThemeWithType {
   theme: string;
   type?: string;
+}
+
+interface AspectRatio {
+  id: string;
+  name: string;
+  value: string;
+  width: number;
+  height: number;
+  label: string;
 }
 
 export function Create() {
@@ -39,8 +50,12 @@ export function Create() {
 
   // 插画设定状态
   const [illustrationSettings, setIllustrationSettings] = useState({
-    model: 'hand_drawn',
-    aspectRatio: '16:9',  // 固定为16:9
+    model: 'recraftv3',
+    aspectRatio: '1707x1024',  // 更新为具体尺寸
+    style: 'digital_illustration',
+    substyle: 'hand_drawn',
+    aspectRatioId: '16:9',
+    selectedId: 'hand_drawn'  // 添加选中的id
   });
 
   // 使用 useCallback 确保 handleSaveStory 正确绑定
@@ -128,23 +143,79 @@ export function Create() {
     {
       id: 'hand_drawn',
       name: '手绘',
-      thumbnail: '/mod/hand_drawn.png'
+      thumbnail: '/mod/hand_drawn.png',
+      style: 'digital_illustration',
+      substyle: 'hand_drawn',
+      model: 'recraftv3'
     },
     {
       id: 'grain',
       name: '颗粒',
-      thumbnail: '/mod/grain.png'
+      thumbnail: '/mod/grain.png',
+      style: 'digital_illustration',
+      substyle: 'grain',
+      model: 'recraftv3'
     },
     {
-      id: 'clay',
-      name: '陶土',
-      thumbnail: '/mod/clay.png'
+      id: 'kawaii',
+      name: '可爱',
+      thumbnail: '/mod/kawaii.png',
+      style: 'digital_illustration',
+      substyle: 'kawaii',
+      model: 'recraftv2'
+    },
+    {
+      id: 'watercolor', 
+      name: '水彩', 
+      thumbnail: '/mod/watercolor.png',
+      style: 'digital_illustration',
+      substyle: 'watercolor',
+      model: 'recraftv2'
+    },
+    {
+      id: 'pixel_art',
+      name: '像素',
+      thumbnail: '/mod/pixel_art.png',
+      style: 'digital_illustration',
+      substyle: 'pixel_art',
+      model: 'recraftv2'
+    },
+    {
+      id: 'natural_light',
+      name: '自然光',
+      thumbnail: '/mod/natural_light.png',
+      style: 'realistic_image',
+      substyle: 'natural_light',
+      model: 'recraftv2'
     }
   ];
 
-  // 固定画面比例选项
-  const aspectRatios = [
-    { value: '16:9', label: '16:9 (1707x1024)', disabled: false }
+  // 画面比例选项
+  const aspectRatios: AspectRatio[] = [
+    { 
+      id: '16:9',
+      name: '16:9',
+      value: '1707x1024', 
+      width: 1707, 
+      height: 1024,
+      label: '16:9 (1707x1024)' 
+    },
+    { 
+      id: '3:2',
+      name: '3:2',
+      value: '1536x1024', 
+      width: 1536, 
+      height: 1024,
+      label: '3:2 (1536x1024)' 
+    },
+    { 
+      id: '1:1',
+      name: '1:1',
+      value: '1024x1024', 
+      width: 1024, 
+      height: 1024,
+      label: '1:1 (1024x1024)' 
+    }
   ];
 
   // 添加生成插画的函数
@@ -158,10 +229,11 @@ export function Create() {
               'https://external.api.recraft.ai/v1/images/generations',
               {
                 prompt: page.imagePrompt,
-                style: 'digital_illustration',
-                substyle: illustrationSettings.model, // 使用选择的风格
+                style: illustrationSettings.style,
+                substyle: illustrationSettings.substyle, // 使用选择的风格
                 n: 1,
-                size: '1707x1024',
+                size: illustrationSettings.aspectRatio,
+                model: illustrationSettings.model,
                 response_format: 'url'
               },
               {
@@ -293,7 +365,7 @@ export function Create() {
           setGenerationStatus(prev => ({
             ...prev,
             message: `正在生成故事 (${percentCompleted}%)...`,
-            progress: Math.min(60, 30 + percentCompleted / 2)
+            progress: Math.min(40, 30 + percentCompleted / 2)
           }));
         }
       });
@@ -451,10 +523,10 @@ export function Create() {
 请用换行分隔每个主题，并确保每个主题都带有类型标注。`
           }
         ],
-        max_tokens: 200,
-        temperature: 1.0,  // 增加到1.0以获得更多样化的结果
-        presence_penalty: 0.6,  // 添加presence_penalty来减少重复
-        frequency_penalty: 0.6,  // 添加frequency_penalty来避免常见模式
+        max_tokens: 300,
+        temperature: 1.5,  // 增加到1.0以获得更多样化的结果
+        presence_penalty: 2,  // 添加presence_penalty来减少重复
+        frequency_penalty: 2,  // 添加frequency_penalty来避免常见模式
         stream: false
       }, {
         headers: {
@@ -786,11 +858,19 @@ export function Create() {
               {illustrationModels.map((model) => (
                 <button
                   key={model.id}
-                  onClick={() => handleUpdateIllustrationSettings('model', model.id)}
+                  onClick={() => {
+                    setIllustrationSettings(prev => ({
+                      ...prev,
+                      model: model.model,
+                      style: model.style,
+                      substyle: model.substyle,
+                      selectedId: model.id  // 添加选中的id
+                    }));
+                  }}
                   className={`
                     relative p-4 rounded-xl overflow-hidden
                     border-2 transition-all duration-300
-                    ${illustrationSettings.model === model.id 
+                    ${illustrationSettings.selectedId === model.id
                       ? 'border-indigo-600 shadow-lg' 
                       : 'border-gray-200 hover:border-indigo-300'}
                   `}
@@ -805,7 +885,7 @@ export function Create() {
                   <div className="text-center">
                     <h4 className="font-medium text-gray-900">{model.name}</h4>
                   </div>
-                  {illustrationSettings.model === model.id && (
+                  {illustrationSettings.selectedId === model.id && (
                     <div className="absolute top-2 right-2 bg-indigo-600 text-white rounded-full p-1">
                       <Sparkles className="w-4 h-4" />
                     </div>
@@ -815,25 +895,33 @@ export function Create() {
             </div>
           </div>
 
-          {/* Aspect Ratio Selection - 暂时隐藏或禁用其他选项 */}
-          <div className="mb-6" style={{ display: 'none' }}>
-            <h3 className="text-lg font-semibold mb-3">画面比例</h3>
+          {/* Aspect Ratio Selection */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-4">画面比例</h3>
             <div className="grid grid-cols-3 gap-4">
               {aspectRatios.map((ratio) => (
                 <button
-                  key={ratio.value}
-                  onClick={() => handleUpdateIllustrationSettings('aspectRatio', ratio.value)}
-                  disabled={ratio.disabled}
+                  key={ratio.id}
+                  onClick={() => {
+                    handleUpdateIllustrationSettings('aspectRatio', ratio.value);
+                    handleUpdateIllustrationSettings('aspectRatioId', ratio.id);
+                  }}
                   className={`
-                    px-4 py-2 rounded-lg
-                    ${illustrationSettings.aspectRatio === ratio.value
-                      ? 'bg-indigo-600 text-white'
-                      : ratio.disabled
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-white text-gray-700 hover:bg-indigo-50'}
+                    relative p-4 rounded-xl overflow-hidden
+                    border-2 transition-all duration-300
+                    ${illustrationSettings.aspectRatioId === ratio.id 
+                      ? 'border-indigo-600 shadow-lg' 
+                      : 'border-gray-200 hover:border-indigo-300'}
                   `}
                 >
-                  {ratio.label}
+                  <div className="text-center">
+                    <h4 className="font-medium text-gray-900 text-xl">{ratio.id}</h4>
+                  </div>
+                  {illustrationSettings.aspectRatioId === ratio.id && (
+                    <div className="absolute top-2 right-2 bg-indigo-600 text-white rounded-full p-1">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
