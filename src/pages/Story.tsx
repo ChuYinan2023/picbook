@@ -96,8 +96,9 @@ export function Story() {
             />
             
             {/* 文字叠加区域 */}
-            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/70 to-transparent">
-              <p className="text-2xl font-medium text-white leading-relaxed drop-shadow-lg">
+            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
+              <p className="text-xl font-normal text-white leading-relaxed tracking-normal 
+                            bg-black/50 px-3 py-1.5 rounded-lg shadow-xl backdrop-blur-sm">
                 {currentStoryPage.content}
               </p>
             </div>
@@ -126,43 +127,45 @@ export function Story() {
           </div>
 
           {/* 缩略图导航 */}
-          <div className="px-4 py-3 bg-gray-50 flex space-x-3 overflow-x-auto">
-            {story.pages.map((page, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentPage(index)}
-                className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden transition-all duration-200 ${
-                  currentPage === index 
-                    ? 'ring-2 ring-indigo-500 scale-105' 
-                    : 'hover:ring-1 hover:ring-gray-300 opacity-70 hover:opacity-100'
-                }`}
-              >
-                <img
-                  src={page.imageUrl}
-                  alt={`第 ${index + 1} 页缩略图`}
-                  className="w-full h-full object-cover"
-                />
-              </button>
-            ))}
+          <div className="px-4 py-3 bg-gray-50 relative flex items-center justify-center space-x-3 overflow-x-auto">
+            <button 
+              onClick={goToPreviousPage}
+              disabled={currentPage === 0}
+              className={`absolute left-4 z-10 p-1 rounded-full bg-white/80 shadow-md ${
+                currentPage === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white'
+              }`}
+            >
+              <ChevronLeft className="h-5 w-5 text-gray-900" />
+            </button>
+            <div className="flex space-x-3 overflow-x-auto">
+              {story.pages.map((page, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentPage(index)}
+                  className={`flex-shrink-0 w-24 h-[5.25rem] rounded-lg overflow-hidden transition-all duration-200 ${
+                    currentPage === index 
+                      ? 'ring-2 ring-indigo-500 scale-105' 
+                      : 'hover:ring-1 hover:ring-gray-300 opacity-70 hover:opacity-100'
+                  }`}
+                >
+                  <img
+                    src={page.imageUrl}
+                    alt={`第 ${index + 1} 页缩略图`}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+            <button 
+              onClick={goToNextPage}
+              disabled={currentPage === story.pages.length - 1}
+              className={`absolute right-4 z-10 p-1 rounded-full bg-white/80 shadow-md ${
+                currentPage === story.pages.length - 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white'
+              }`}
+            >
+              <ChevronRight className="h-5 w-5 text-gray-900" />
+            </button>
           </div>
-
-          {/* 页码指示器 */}
-          <div className="mt-6 flex items-center justify-center space-x-2">
-            {story.pages.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentPage(index)}
-                className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                  currentPage === index ? 'bg-indigo-600' : 'bg-gray-300 hover:bg-gray-400'
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* 页码显示 */}
-        <div className="mt-4 text-center text-gray-500">
-          第 {currentPage + 1} 页，共 {story.pages.length} 页
         </div>
       </div>
     </div>
