@@ -183,7 +183,7 @@ export function MyStories() {
         </div>
         
         {stories.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-xl shadow-lg">
+          <div className="text-center py-16 bg-white/80 backdrop-blur-sm rounded-xl shadow-lg max-w-7xl mx-auto">
             <Book className="mx-auto h-16 w-16 text-gray-400 mb-4" />
             <p className="text-xl text-gray-600">你还没有创建任何绘本</p>
             <button 
@@ -194,7 +194,7 @@ export function MyStories() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-w-7xl mx-auto">
             {filteredAndSortedStories.map((story) => (
               <StoryCard
                 key={story.id}

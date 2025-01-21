@@ -99,12 +99,11 @@ export function Home() {
           <div className="flex justify-between items-center mb-8">
             <div>
               <h2 className="text-2xl font-bold text-gray-900">我的作品</h2>
-              <p className="mt-1 text-gray-500">这里展示了您创作的所有绘本作品</p>
             </div>
           </div>
 
           {userStories.length === 0 ? (
-            <div className="text-center py-12 bg-white/80 backdrop-blur-sm rounded-lg">
+            <div className="text-center py-12 bg-white/80 backdrop-blur-sm rounded-lg max-w-7xl mx-auto">
               <BookOpen className="mx-auto h-12 w-12 text-gray-400" />
               <h3 className="mt-2 text-sm font-medium text-gray-900">暂无作品</h3>
               <p className="mt-1 text-sm text-gray-500">开始创作您的第一本绘本吧</p>
@@ -119,7 +118,7 @@ export function Home() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-w-7xl mx-auto">
               {userStories.map((story) => (
                 <Link key={story.id} to={`/story/${story.id}`}>
                   <StoryCard story={story} />

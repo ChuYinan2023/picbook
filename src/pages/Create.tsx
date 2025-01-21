@@ -571,18 +571,13 @@ export function Create() {
           <div className="space-y-8">
             <div className="text-center space-y-4">
               <h1 className="text-4xl font-bold text-gray-900">选择故事主题</h1>
-              <p className="text-lg text-gray-600">
-                从以下主题中选择一个，或输入您的创意主题
-              </p>
             </div>
 
             {/* 添加自定义主题输入框 */}
             <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6 mb-8">
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="customTheme" className="block text-sm font-medium text-gray-700 mb-1">
-                    自定义主题
-                  </label>
+
                   <div className="flex gap-4">
                     <input
                       type="text"
@@ -618,9 +613,7 @@ export function Create() {
               </div>
             </div>
 
-            <div className="text-center mb-6">
-              <h2 className="text-2xl font-semibold text-gray-800">推荐主题</h2>
-            </div>
+
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {randomThemes.map((item, index) => (
